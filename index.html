@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ADB Web Tool</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='bot' x1='0' y1='5' x2='0' y2='27'%3E%3Cstop offset='0' stop-color='%23a3e635'/%3E%3Cstop offset='1' stop-color='%2322c55e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M10.2 12.2h11.6a2.2 2.2 0 0 1 2.2 2.2v7.1a2.2 2.2 0 0 1-2.2 2.2H10.2A2.2 2.2 0 0 1 8 21.5v-7.1a2.2 2.2 0 0 1 2.2-2.2Z' fill='url(%23bot)'/%3E%3Cpath d='M11.2 11.6a4.8 4.8 0 0 1 9.6 0' fill='none' stroke='%23a3e635' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M11.2 7.8 9.7 5.6M20.8 7.8l1.5-2.2M6 15v5M26 15v5M12 24v3M20 24v3' stroke='%23a3e635' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='13' cy='16.5' r='1.2' fill='%230f172a'/%3E%3Ccircle cx='19' cy='16.5' r='1.2' fill='%230f172a'/%3E%3Cpath d='M13.2 20.2h5.6' stroke='%230f172a' stroke-width='1.5' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --glass-bg:rgba(255,255,255,0.55);
+  --glass-border:rgba(255,255,255,0.7);
+  --glass-shadow:0 8px 32px rgba(100,120,200,0.10),0 1.5px 0 rgba(255,255,255,0.7) inset;
+  --glass-blur:saturate(180%) blur(18px);
+  --bg1:#c7d8f8;
+  --bg2:#d4c8f6;
+  --bg3:#b8dff5;
+  --bg4:#e2d4f0;
+  --text:#1a1f36;
+  --text2:#4a5280;
+  --text3:#8891b5;
+  --accent:#3b6ef5;
+  --accent2:#7c5cf7;
+  --danger:#ef4444;
+  --ok:#10b981;
+  --warn:#f59e0b;
+  --out-bg:rgba(10,12,28,0.92);
+  --out-text:#c8d4f0;
+  --radius:16px;
+  --radius-sm:10px;
+  --radius-xs:7px;
+  --trans:cubic-bezier(0.34,1.56,0.64,1);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --glass-bg:rgba(18,22,48,0.62);
+    --glass-border:rgba(80,100,200,0.22);
+    --glass-shadow:0 8px 32px rgba(0,0,20,0.35),0 1.5px 0 rgba(80,100,200,0.18) inset;
+    --bg1:#0f1535;
+    --bg2:#150f2e;
+    --bg3:#0a1a2e;
+    --bg4:#1a1230;
+    --text:#e2e8ff;
+    --text2:#9ba3cf;
+    --text3:#5c6490;
+    --out-bg:rgba(4,6,18,0.95);
+    --out-text:#b8c8ee;
+  }
+}
+html{height:100%;font-size:15px}
+body{
+  min-height:100vh;
+  background:var(--bg1);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','SF Pro Display',system-ui,sans-serif;
+  line-height:1.55;
+  position:relative;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(ellipse 70% 55% at 15% 10%, rgba(99,148,255,0.35) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 50% at 85% 20%, rgba(168,130,255,0.30) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 50% 85%, rgba(80,190,240,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 5% 75%, rgba(120,100,255,0.18) 0%, transparent 55%),
+    linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 40%, var(--bg3) 70%, var(--bg4) 100%);
+  z-index:0;
+  pointer-events:none;
+}
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle 400px at 20% 30%, rgba(255,255,255,0.06) 0%, transparent 100%),
+    radial-gradient(circle 300px at 80% 60%, rgba(255,255,255,0.04) 0%, transparent 100%);
+  z-index:0;
+  pointer-events:none;
+}
+.wrap{
+  position:relative;
+  z-index:1;
+  width:min(960px,calc(100vw - 28px));
+  margin:0 auto;
+  padding:24px 0 40px;
+}
+.glass{
+  background:var(--glass-bg);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-shadow);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border-radius:var(--radius);
+}
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:20px;
+  padding:18px 22px;
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.logo-icon{
+  width:54px;height:54px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.logo-icon svg{display:block}
+h1{font-size:20px;font-weight:700;letter-spacing:-0.3px;color:var(--text)}
+.sub{color:var(--text2);font-size:12px;margin-top:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.panel{padding:18px 20px}
+.panel.wide{grid-column:1/-1}
+.wrap>.panel.wide+.panel.wide{margin-top:14px}
+.panel-title{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:14px;
+}
+h2{font-size:14px;font-weight:600;color:var(--text);letter-spacing:0.1px}
+.badge{
+  font-size:11px;font-weight:500;
+  padding:3px 9px;border-radius:99px;
+  background:rgba(59,110,245,0.12);
+  color:var(--accent);
+  border:1px solid rgba(59,110,245,0.2);
+  letter-spacing:0.3px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+.stack{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;align-items:flex-end}
+label{
+  display:block;
+  font-size:11px;font-weight:500;
+  color:var(--text3);
+  margin-bottom:5px;
+  letter-spacing:0.3px;
+  text-transform:uppercase;
+}
+input[type="text"],input[type="file"],select{
+  width:100%;min-width:0;
+  background:rgba(255,255,255,0.35);
+  border:1px solid rgba(255,255,255,0.6);
+  border-radius:var(--radius-xs);
+  color:var(--text);
+  outline:none;
+  padding:9px 12px;
+  font:inherit;
+  font-size:13px;
+  transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;
+  -webkit-appearance:none;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+@media(prefers-color-scheme:dark){
+  input[type="text"],input[type="file"],select{
+    background:rgba(30,40,80,0.5);
+    border-color:rgba(80,100,200,0.3);
+  }
+  select option{background:#1a2040;color:var(--text)}
+}
+input[type="text"]:focus,select:focus{
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.5);
+  box-shadow:0 0 0 3px rgba(59,110,245,0.15);
+}
+@media(prefers-color-scheme:dark){
+  input[type="text"]:focus,select:focus{
+    background:rgba(40,55,120,0.6);
+  }
+}
+input[type="file"]{cursor:pointer;font-size:12px}
+input.short{max-width:110px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:none;border-radius:var(--radius-xs);
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;
+  cursor:pointer;
+  padding:9px 16px;
+  white-space:nowrap;
+  font:inherit;font-size:13px;font-weight:600;
+  letter-spacing:0.1px;
+  box-shadow:0 3px 12px rgba(59,110,245,0.35);
+  transition:transform 0.18s var(--trans),box-shadow 0.18s,opacity 0.15s;
+  position:relative;
+  overflow:hidden;
+}
+.btn::after{
+  content:'';position:absolute;inset:0;
+  background:rgba(255,255,255,0);
+  transition:background 0.15s;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 5px 20px rgba(59,110,245,0.45)}
+.btn:active{transform:scale(0.97) translateY(0);box-shadow:0 2px 8px rgba(59,110,245,0.3)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.secondary{
+  background:rgba(255,255,255,0.35);
+  color:var(--text2);
+  box-shadow:0 2px 8px rgba(0,0,0,0.07);
+  border:1px solid rgba(255,255,255,0.5);
+}
+.btn.secondary:hover{background:rgba(255,255,255,0.5);box-shadow:0 4px 14px rgba(0,0,0,0.10)}
+@media(prefers-color-scheme:dark){
+  .btn.secondary{background:rgba(40,50,100,0.5);border-color:rgba(80,100,200,0.3);color:var(--text2)}
+  .btn.secondary:hover{background:rgba(50,65,130,0.65)}
+}
+.btn.danger{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 3px 12px rgba(239,68,68,0.35)}
+.btn.danger:hover{box-shadow:0 5px 20px rgba(239,68,68,0.45)}
+.btn.danger:disabled{opacity:.45}
+.checkline{
+  display:flex;align-items:center;gap:16px;
+  font-size:12px;color:var(--text2);
+  flex-wrap:wrap;
+}
+.checkline label{
+  display:flex;align-items:center;gap:5px;
+  text-transform:none;letter-spacing:0;font-size:12px;
+  color:var(--text2);cursor:pointer;margin-bottom:0;
+}
+.checkline input[type="checkbox"]{
+  width:15px;height:15px;border-radius:4px;cursor:pointer;
+  accent-color:var(--accent);
+}
+#devices{min-height:48px;display:flex;flex-direction:column;gap:7px}
+.device{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:rgba(255,255,255,0.30);
+  border:1px solid rgba(255,255,255,0.55);
+  border-radius:var(--radius-sm);
+  padding:10px 14px;
+  cursor:pointer;
+  transition:border-color 0.18s,transform 0.18s var(--trans),background 0.18s,box-shadow 0.18s;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.device:hover{
+  border-color:var(--accent);
+  background:rgba(59,110,245,0.08);
+  transform:translateX(3px);
+  box-shadow:0 3px 12px rgba(59,110,245,0.12);
+}
+@media(prefers-color-scheme:dark){
+  .device{background:rgba(25,35,80,0.45);border-color:rgba(80,100,200,0.25)}
+  .device:hover{background:rgba(59,110,245,0.12);border-color:var(--accent)}
+}
+.device-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:var(--ok);
+  box-shadow:0 0 6px var(--ok);
+}
+.device-dot.offline{background:var(--text3);box-shadow:none}
+.device-dot.unauth{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+.serial{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;color:var(--text);overflow-wrap:anywhere;
+}
+.state{color:var(--text3);font-size:11px;margin-top:1px}
+.empty{
+  color:var(--text3);padding:14px 0;
+  text-align:center;font-size:13px;
+}
+.output-area{
+  background:var(--out-bg);
+  border:1px solid rgba(80,100,200,0.2);
+  border-radius:var(--radius-sm);
+  color:var(--out-text);
+  font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  min-height:280px;max-height:52vh;
+  overflow:auto;
+  padding:12px 14px;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  transition:border-color 0.2s;
+}
+.adb-path-row{display:flex;gap:8px;align-items:flex-end}
+.adb-runtime{
+  margin-top:12px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:rgba(255,255,255,0.24);
+  border:1px solid rgba(255,255,255,0.45);
+  border-radius:var(--radius-sm);
+  padding:10px 12px;
+}
+@media(prefers-color-scheme:dark){
+  .adb-runtime{background:rgba(25,35,80,0.38);border-color:rgba(80,100,200,0.24)}
+}
+.adb-runtime-main{display:flex;align-items:center;gap:10px;min-width:0}
+.adb-runtime-dot{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  background:var(--text3);
+}
+.adb-runtime-dot.running{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.adb-runtime-dot.checking{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.adb-runtime-title{font-size:12px;font-weight:600;color:var(--text)}
+.adb-runtime-detail{
+  margin-top:1px;
+  font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--text3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:min(520px,52vw);
+}
+.adb-runtime .btn{padding:7px 11px;font-size:12px;flex-shrink:0}
+.hint{
+  font-size:11px;color:var(--text3);margin-top:6px;
+  transition:color 0.3s;
+}
+.hint.ok{color:var(--ok)}
+.progress-wrap{margin-bottom:12px;transition:opacity 0.3s}
+.progress-wrap.hidden{opacity:0;pointer-events:none;height:0;margin:0;overflow:hidden}
+.progress-meta{
+  display:flex;justify-content:space-between;gap:12px;
+  color:var(--text3);font-size:11px;margin-bottom:6px;
+}
+.progress-bar{
+  height:6px;overflow:hidden;
+  background:rgba(255,255,255,0.15);
+  border-radius:99px;
+}
+@media(prefers-color-scheme:dark){
+  .progress-bar{background:rgba(40,50,100,0.5)}
+}
+.progress-fill{
+  width:0%;height:100%;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:99px;
+  transition:width 0.2s ease;
+}
+.overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,10,28,0.55);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  padding:18px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.25s;
+}
+.overlay.open{opacity:1;pointer-events:auto}
+.modal{
+  width:min(900px,100%);
+  max-height:min(780px,calc(100vh - 36px));
+  display:flex;flex-direction:column;
+  animation:slideUp 0.35s var(--trans);
+}
+@keyframes slideUp{
+  from{transform:translateY(24px) scale(0.97);opacity:0}
+  to{transform:none;opacity:1}
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.2);
+}
+@media(prefers-color-scheme:dark){
+  .modal-head{border-bottom-color:rgba(80,100,200,0.2)}
+}
+.modal-head h2{font-size:15px}
+.modal-actions{display:flex;align-items:center;gap:8px}
+.modal-body{padding:14px;overflow:hidden;flex:1;display:flex;flex-direction:column;gap:12px}
+.modal-body .output-area{min-height:380px;max-height:calc(100vh - 200px);flex:1}
+.device-count{
+  font-size:12px;font-weight:500;
+  padding:2px 8px;border-radius:99px;
+  background:rgba(59,110,245,0.12);
+  color:var(--accent);
+}
+.section-icon{
+  width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(59,110,245,0.18),rgba(124,92,247,0.18));
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.section-icon svg{display:block}
+.panel-title-left{display:flex;align-items:center;gap:10px}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pulse{animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@media(max-width:680px){
+  .grid{grid-template-columns:1fr}
+  .panel.wide{grid-column:1}
+  .row,.modal-actions{flex-wrap:wrap}
+  .row{flex-direction:column;align-items:stretch}
+  .row .btn{width:100%}
+  .adb-path-row{flex-direction:row}
+  .adb-path-row .btn{width:auto}
+  .adb-runtime{align-items:stretch;flex-direction:column}
+  .adb-runtime-detail{max-width:100%}
+  .adb-runtime .btn{width:100%}
+  input.short{max-width:none}
+  .checkline{gap:12px}
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(100,120,200,0.25);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:rgba(100,120,200,0.45)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="glass">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="46" height="46" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="androidBody" x1="8" y1="5" x2="20" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#bef264"/>
+              <stop offset="1" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <path d="M9.2 10.8h9.6A2.2 2.2 0 0 1 21 13v6.7a2.2 2.2 0 0 1-2.2 2.2H9.2A2.2 2.2 0 0 1 7 19.7V13a2.2 2.2 0 0 1 2.2-2.2Z" fill="url(#androidBody)"/>
+          <path d="M9.4 10.2a4.6 4.6 0 0 1 9.2 0" stroke="#bef264" stroke-width="1.9" stroke-linecap="round"/>
+          <path d="M9.8 6.7 8.5 4.7M18.2 6.7l1.3-2M5 13.8v4.7M23 13.8v4.7M10 21.8v2.5M18 21.8v2.5" stroke="#bef264" stroke-width="1.9" stroke-linecap="round"/>
+          <circle cx="11.7" cy="15.2" r="1.1" fill="#0f172a"/>
+          <circle cx="16.3" cy="15.2" r="1.1" fill="#0f172a"/>
+          <path d="M11.6 18.4h4.8" stroke="#0f172a" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
+          <path d="M8.1 12.6c1.2-.7 3.2-1.1 5.9-1.1s4.7.4 5.9 1.1" stroke="white" stroke-opacity=".45" stroke-width="1.1" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>ADB Web Tool</h1>
+        <div class="sub">无线调试 · 安装 APK · 抓取日志</div>
+      </div>
+    </div>
+    <button class="btn secondary" onclick="refreshDevices()" id="refresh-btn">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+        <path d="M12 7A5 5 0 1 1 7 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M7 2L9.5 4.5L7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      刷新设备
+    </button>
+  </header>
+
+  <section class="glass panel wide">
+    <div class="panel-title">
+      <div class="panel-title-left">
+        <div class="section-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="4" width="12" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.5"/>
+            <path d="M5 12v2M11 12v2M5 14h6" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>已连接设备</h2>
+      </div>
+      <span class="device-count" id="device-count" style="display:none"></span>
+    </div>
+    <div id="devices"><div class="empty">正在读取设备列表…</div></div>
+  </section>
+
+  <div class="glass panel wide">
+    <div class="panel-title">
+      <div class="panel-title-left">
+        <div class="section-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 8h12M8 2v12" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>ADB 路径</h2>
+      </div>
+    </div>
+    <div class="adb-path-row">
+      <div style="flex:1">
+        <input type="text" id="adb-path" value="" placeholder="adb（程序目录下的 adb 或绝对路径）">
+      </div>
+      <button class="btn secondary" onclick="saveAdbPath()">保存</button>
+    </div>
+    <div class="hint" id="adb-status">当前请求将使用这里填写的 adb 路径。</div>
+    <div class="adb-runtime" id="adb-runtime">
+      <div class="adb-runtime-main">
+        <div class="adb-runtime-dot checking" id="adb-runtime-dot"></div>
+        <div style="min-width:0">
+          <div class="adb-runtime-title" id="adb-runtime-title">正在检查 ADB 服务</div>
+          <div class="adb-runtime-detail" id="adb-runtime-detail">adb server: checking</div>
+        </div>
+      </div>
+      <button class="btn danger" id="adb-stop-btn" onclick="stopAdbServer()" disabled>
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+          <rect x="3.2" y="3.2" width="7.6" height="7.6" rx="1.2" fill="currentColor"/>
+        </svg>
+        停止 ADB
+      </button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="glass panel">
+      <div class="panel-title">
+        <div class="panel-title-left">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="2" width="10" height="12" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+              <path d="M6 6h4M6 9h2" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h2>无线配对</h2>
+        </div>
+        <span class="badge">adb pair</span>
+      </div>
+      <div class="stack">
+        <div>
+          <label for="pair-ip">设备 IP</label>
+          <input type="text" id="pair-ip" placeholder="192.168.1.23" inputmode="numeric">
+        </div>
+        <div class="row">
+          <div style="flex:1">
+            <label for="pair-port">配对端口</label>
+            <input type="text" id="pair-port" placeholder="37123" inputmode="numeric">
+          </div>
+          <div style="flex:1">
+            <label for="pair-code">配对码</label>
+            <input type="text" id="pair-code" placeholder="123456" inputmode="numeric">
+          </div>
+        </div>
+        <button class="btn" onclick="pairDevice()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+            <path d="M5 7L7 9L9 5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="7" cy="7" r="5.5" stroke="white" stroke-width="1.3"/>
+          </svg>
+          开始配对
+        </button>
+      </div>
+    </section>
+
+    <section class="glass panel">
+      <div class="panel-title">
+        <div class="panel-title-left">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>连接设备</h2>
+        </div>
+        <span class="badge">adb connect</span>
+      </div>
+      <div class="stack">
+        <div>
+          <label for="connect-ip">设备 IP</label>
+          <input type="text" id="connect-ip" placeholder="192.168.1.23" inputmode="numeric">
+        </div>
+        <div class="row">
+          <div style="flex:1">
+            <label for="connect-port">连接端口</label>
+            <input type="text" id="connect-port" value="5555" inputmode="numeric">
+          </div>
+          <button class="btn" onclick="connectDevice()" style="align-self:flex-end;margin-bottom:0">连接</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass panel">
+      <div class="panel-title">
+        <div class="panel-title-left">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v9M5 8l3 3 3-3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 12h10v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1z" stroke="var(--accent)" stroke-width="1.3"/>
+            </svg>
+          </div>
+          <h2>安装 APK</h2>
+        </div>
+        <span class="badge">adb install</span>
+      </div>
+      <div class="stack">
+        <div>
+          <label for="install-device">目标设备</label>
+          <select id="install-device"><option value="">请先选择设备</option></select>
+        </div>
+        <div>
+          <label for="apk-file">APK 文件</label>
+          <input type="file" id="apk-file" accept=".apk,application/vnd.android.package-archive">
+        </div>
+        <div class="checkline">
+          <label><input type="checkbox" id="install-r" checked> 保留数据重装</label>
+          <label><input type="checkbox" id="install-d"> 允许降级</label>
+        </div>
+        <button class="btn" onclick="installApk()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+            <path d="M7 2v7M4 6l3 3 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 10v1.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V10" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          上传并安装
+        </button>
+      </div>
+    </section>
+
+    <section class="glass panel">
+      <div class="panel-title">
+        <div class="panel-title-left">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 4h10M3 7h7M3 10h5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12.5" cy="10.5" r="2.5" stroke="var(--accent)" stroke-width="1.3"/>
+            </svg>
+          </div>
+          <h2>应用日志</h2>
+        </div>
+        <span class="badge">adb logcat</span>
+      </div>
+      <div class="stack">
+        <div>
+          <label for="log-device">目标设备</label>
+          <select id="log-device"><option value="">请先选择设备</option></select>
+        </div>
+        <div>
+          <label for="package-name">应用包名（可选）</label>
+          <input type="text" id="package-name" placeholder="留空抓取全部实时日志" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="log-filter">关键词过滤（可选）</label>
+          <input type="text" id="log-filter" placeholder="ActivityManager 或 TAG" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="row" style="flex-direction:row">
+          <button class="btn" id="log-start" onclick="startLogcat()" style="flex:1">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+              <polygon points="4,2 12,7 4,12" fill="white"/>
+            </svg>
+            开始抓取
+          </button>
+          <button class="btn danger" id="log-stop" onclick="stopLogcat()" disabled style="flex:1">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+              <rect x="3" y="3" width="8" height="8" rx="1" fill="white"/>
+            </svg>
+            停止
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="output-title">
+    <div class="modal-head">
+      <h2 id="output-title">命令输出</h2>
+      <div class="modal-actions">
+        <button class="btn danger" id="modal-stop" onclick="stopCurrentOperation()" disabled>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0">
+            <rect x="2" y="2" width="8" height="8" rx="1" fill="white"/>
+          </svg>
+          停止
+        </button>
+        <button class="btn secondary" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0">
+            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          关闭
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="progress-wrap hidden" id="upload-progress">
+        <div class="progress-meta">
+          <span id="upload-progress-label">上传中</span>
+          <span id="upload-progress-percent">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="upload-progress-fill"></div></div>
+      </div>
+      <div id="output" class="output-area"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let devices=[],currentController=null,currentXhr=null,currentMode='',adbStatusTimer=null,adbStatusBusy=false,adbStopBusy=false,adbStatusDebounce=null;
+const out=document.getElementById('output');
+const overlay=document.getElementById('overlay');
+const adbInput=document.getElementById('adb-path');
+const progressWrap=document.getElementById('upload-progress');
+const progressLabel=document.getElementById('upload-progress-label');
+const progressPercent=document.getElementById('upload-progress-percent');
+const progressFill=document.getElementById('upload-progress-fill');
+const stopBtn=document.getElementById('modal-stop');
+const refreshBtn=document.getElementById('refresh-btn');
+const adbRuntimeDot=document.getElementById('adb-runtime-dot');
+const adbRuntimeTitle=document.getElementById('adb-runtime-title');
+const adbRuntimeDetail=document.getElementById('adb-runtime-detail');
+const adbStopBtn=document.getElementById('adb-stop-btn');
+
+function init(){
+  const s=localStorage.getItem('adbtool.adbPath');
+  if(s){adbInput.value=s}
+  // 没有本地保存值则从服务端获取默认 adb 路径
+  fetch('/api/check').then(r=>r.json()).then(d=>{
+    if(!adbInput.value && d.default_adb)adbInput.value=d.default_adb;
+    refreshAdbStatus();
+  }).catch(()=>{if(!adbInput.value)adbInput.value='./adb'});
+  refreshAdbStatus();
+  adbStatusTimer=setInterval(refreshAdbStatus,2500);
+  refreshDevices();
+}
+function adbPath(){return adbInput.value.trim()||''}
+function saveAdbPath(){
+  localStorage.setItem('adbtool.adbPath',adbPath());
+  const h=document.getElementById('adb-status');
+  h.textContent='已保存: '+adbPath();
+  h.className='hint ok';
+  setTimeout(()=>{h.textContent='当前请求将使用这里填写的 adb 路径。';h.className='hint'},2500);
+  refreshAdbStatus(true);
+}
+function scheduleAdbStatus(){
+  clearTimeout(adbStatusDebounce);
+  adbStatusDebounce=setTimeout(()=>refreshAdbStatus(true),350);
+}
+function setAdbStatusView(state,data){
+  adbRuntimeDot.className='adb-runtime-dot '+(state==='running'?'running':state==='checking'?'checking':'');
+  if(state==='checking'){
+    adbRuntimeTitle.textContent='正在检查 ADB 服务';
+    adbRuntimeDetail.textContent=(adbPath()||'adb')+' server: checking';
+    adbStopBtn.disabled=true;
+    return;
+  }
+  if(state==='running'){
+    adbRuntimeTitle.textContent='ADB 服务运行中';
+    adbRuntimeDetail.textContent='pid '+(data.pid||'-')+' · '+(data.cmd||data.adb||adbPath()||'adb');
+    adbStopBtn.disabled=adbStopBusy;
+    return;
+  }
+  adbRuntimeTitle.textContent='ADB 服务未运行';
+  adbRuntimeDetail.textContent=(data&&data.adb?data.adb:(adbPath()||'adb'))+' server: stopped';
+  adbStopBtn.disabled=true;
+}
+async function refreshAdbStatus(force){
+  if(adbStatusBusy&&!force)return;
+  adbStatusBusy=true;
+  if(force)setAdbStatusView('checking',{});
+  try{
+    const res=await fetch('/api/adb_status?adb='+encodeURIComponent(adbPath()));
+    const data=await res.json();
+    setAdbStatusView(data.running?'running':'stopped',data);
+  }catch(e){
+    setAdbStatusView('stopped',{adb:adbPath()||'adb'});
+  }finally{
+    adbStatusBusy=false;
+  }
+}
+async function stopAdbServer(){
+  if(adbStopBusy||adbStopBtn.disabled)return;
+  adbStopBusy=true;
+  adbStopBtn.disabled=true;
+  adbStopBtn.querySelector('svg').classList.add('spin');
+  try{
+    await fetch('/api/adb_stop',{method:'POST',body:JSON.stringify({adb:adbPath()})});
+  }catch(e){}
+  adbStopBtn.querySelector('svg').classList.remove('spin');
+  adbStopBusy=false;
+  await refreshAdbStatus(true);
+  devices=[];
+  renderDevices('ADB 服务已停止，点击刷新设备会重新启动 ADB');
+}
+function append(text){
+  openModal();
+  out.textContent+=text;
+  out.scrollTop=out.scrollHeight;
+}
+function setBusy(v){stopBtn.disabled=!v}
+function showProgress(label,pct){
+  progressWrap.classList.remove('hidden');
+  progressLabel.textContent=label;
+  progressPercent.textContent=pct+'%';
+  progressFill.style.width=pct+'%';
+}
+function hideProgress(){
+  progressWrap.classList.add('hidden');
+  progressFill.style.width='0%';
+  progressPercent.textContent='0%';
+}
+function openModal(title){
+  if(title)document.getElementById('output-title').textContent=title;
+  overlay.classList.add('open');
+  out.scrollTop=out.scrollHeight;
+}
+function closeModal(){overlay.classList.remove('open')}
+function overlayClick(e){if(e.target===overlay)closeModal()}
+function beginOutput(title){out.textContent='';hideProgress();openModal(title)}
+function requireValue(id,name){
+  const v=document.getElementById(id).value.trim();
+  if(!v){append('[错误] 请填写 '+name+'\n');return ''}
+  return v;
+}
+async function streamFetch(url,opts){
+  const controller=new AbortController();
+  currentController=controller;setBusy(true);
+  try{
+    const res=await fetch(url,Object.assign({},opts||{},{signal:controller.signal}));
+    if(!res.ok){append(await res.text()+'\n');return}
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    while(true){
+      const p=await reader.read();
+      if(p.done)break;
+      append(dec.decode(p.value,{stream:true}));
+    }
+    const tail=dec.decode();if(tail)append(tail);
+  }catch(e){
+    if(e.name==='AbortError')append('\n--- 操作已停止 ---\n');
+    else append('[错误] '+e.message+'\n');
+  }finally{currentController=null;currentMode='';setBusy(Boolean(currentXhr))}
+}
+async function refreshDevices(){
+  const box=document.getElementById('devices');
+  if(refreshBtn.disabled)return;
+  refreshBtn.disabled=true;
+  box.innerHTML='<div class="empty"><span class="pulse">正在读取设备列表…</span></div>';
+  refreshBtn.querySelector('svg').classList.add('spin');
+  try{
+    const res=await fetch('/api/devices?adb='+encodeURIComponent(adbPath()));
+    const text=await res.text();
+    devices=parseDevices(text);renderDevices();
+  }catch(e){devices=[];renderDevices()}
+  finally{
+    refreshBtn.querySelector('svg').classList.remove('spin');
+    refreshBtn.disabled=false;
+  }
+}
+function parseDevices(text){
+  const list=[];
+  if(!text||!text.includes('List of devices'))return list;
+  for(const line of text.split(/\r?\n/)){
+    const t=line.trim();
+    if(!t||t.startsWith('List of devices'))continue;
+    const parts=t.split(/\s+/);
+    if(parts.length<2||!isAdbState(parts[1]))continue;
+    list.push({serial:parts[0],state:parts[1],detail:parts.slice(2).join(' ')});
+  }
+  return list;
+}
+function isAdbState(s){return['device','offline','unauthorized','recovery','sideload','bootloader'].includes(s)}
+function renderDevices(emptyText){
+  const box=document.getElementById('devices');
+  const countEl=document.getElementById('device-count');
+  const sels=[document.getElementById('install-device'),document.getElementById('log-device')];
+  if(!devices.length){
+    box.innerHTML='<div class="empty">'+escH(emptyText||'未发现设备，请先配对或连接')+'</div>';
+    countEl.style.display='none';
+  }else{
+    countEl.style.display='';
+    countEl.textContent=devices.length+' 台';
+    box.innerHTML=devices.map(d=>{
+      const dotCls=d.state==='device'?'device-dot':d.state==='unauthorized'?'device-dot unauth':'device-dot offline';
+      return '<div class="device" data-serial="'+esc(d.serial)+'">'
+        +'<div style="display:flex;align-items:center;gap:10px">'
+        +'<div class="'+dotCls+'"></div>'
+        +'<div><div class="serial">'+escH(d.serial)+'</div>'
+        +'<div class="state">'+escH(d.state+(d.detail?' '+d.detail:''))+'</div></div>'
+        +'</div>'
+        +'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="color:var(--text3);flex-shrink:0">'
+        +'<path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        +'</div>';
+    }).join('');
+    box.querySelectorAll('.device').forEach(el=>{
+      el.addEventListener('click',()=>selectDevice(el.dataset.serial));
+    });
+  }
+  for(const sel of sels){
+    const cur=sel.value;
+    sel.innerHTML='<option value="">请先选择设备</option>'+devices.map(d=>'<option value="'+esc(d.serial)+'">'+escH(d.serial)+'</option>').join('');
+    if(devices.some(d=>d.serial===cur))sel.value=cur;
+  }
+}
+function selectDevice(serial){
+  document.getElementById('install-device').value=serial;
+  document.getElementById('log-device').value=serial;
+}
+async function pairDevice(){
+  beginOutput('配对输出');
+  const ip=requireValue('pair-ip','设备 IP');if(!ip)return;
+  const port=requireValue('pair-port','配对端口');if(!port)return;
+  const code=requireValue('pair-code','配对码');if(!code)return;
+  append('--- 配对 '+ip+':'+port+' ---\n');
+  await streamFetch('/api/pair',{method:'POST',body:JSON.stringify({adb:adbPath(),ip,port,code})});
+}
+async function connectDevice(){
+  beginOutput('连接输出');
+  const ip=requireValue('connect-ip','设备 IP');if(!ip)return;
+  const port=document.getElementById('connect-port').value.trim()||'5555';
+  append('--- 连接 '+ip+':'+port+' ---\n');
+  await streamFetch('/api/connect',{method:'POST',body:JSON.stringify({adb:adbPath(),ip,port})});
+  await refreshDevices();
+}
+async function installApk(){
+  beginOutput('安装输出');
+  const device=document.getElementById('install-device').value;
+  const fi=document.getElementById('apk-file');
+  if(!device){append('[错误] 请选择安装目标设备\n');return}
+  if(!fi.files.length){append('[错误] 请选择 APK 文件\n');return}
+  const file=fi.files[0];
+  try{
+    const sr=await fetch('/api/tmp_space');
+    if(sr.ok){const s=await sr.json();if(s.free<file.size){append('[错误] /tmp 空间不足，APK '+fmtB(file.size)+'，可用 '+fmtB(s.free)+'\n');return}}
+  }catch(e){}
+  const form=new FormData();
+  let opts='';
+  if(document.getElementById('install-r').checked)opts+='-r';
+  if(document.getElementById('install-d').checked)opts+=(opts?' ':'')+'-d';
+  form.append('apk',file,file.name);form.append('opts',opts);
+  showProgress('准备上传',0);
+  append('--- 上传并安装 ---\n');
+  append('文件: '+file.name+' ('+fmtB(file.size)+')\n');
+  await uploadAndInstall('/api/install?adb='+encodeURIComponent(adbPath())+'&device='+encodeURIComponent(device),form);
+}
+function uploadAndInstall(url,form){
+  return new Promise(resolve=>{
+    const xhr=new XMLHttpRequest();let seen=0;
+    currentXhr=xhr;currentMode='install';setBusy(true);
+    xhr.open('POST',url,true);
+    xhr.upload.onprogress=function(e){
+      if(!e.lengthComputable)return;
+      const pct=Math.max(0,Math.min(100,Math.round((e.loaded/e.total)*100)));
+      showProgress(pct>=100?'上传完成，等待后端处理':'上传中',pct);
+    };
+    xhr.onreadystatechange=function(){
+      if(xhr.responseText.length>seen){
+        const chunk=xhr.responseText.slice(seen);seen=xhr.responseText.length;append(chunk);
+        if(xhr.responseText.includes('APK 已完整保存到 /tmp'))showProgress('安装中…',100);
+      }
+      if(xhr.readyState===4){
+        if(xhr.status>=400&&xhr.responseText.length===0)append('[错误] HTTP '+xhr.status+'\n');
+        currentXhr=null;currentMode='';setBusy(Boolean(currentController));resolve();
+      }
+    };
+    xhr.onerror=function(){append('[错误] 请求失败\n');currentXhr=null;currentMode='';setBusy(Boolean(currentController));resolve()};
+    xhr.onabort=function(){append('\n--- 操作已停止 ---\n');currentXhr=null;currentMode='';setBusy(Boolean(currentController));resolve()};
+    xhr.send(form);
+  });
+}
+async function startLogcat(){
+  beginOutput('日志输出');
+  const device=document.getElementById('log-device').value;
+  const pkg=document.getElementById('package-name').value.trim();
+  const filter=document.getElementById('log-filter').value.trim();
+  if(!device){append('[错误] 请选择日志目标设备\n');return}
+  stopLogcat(false);
+  currentMode='logcat';
+  document.getElementById('log-start').disabled=true;
+  document.getElementById('log-stop').disabled=false;
+  append(pkg ? '--- logcat: '+pkg+' ---\n' : '--- logcat: 全部实时日志 ---\n');
+  const url='/api/logcat?adb='+encodeURIComponent(adbPath())+'&device='+encodeURIComponent(device)+'&package='+encodeURIComponent(pkg)+(filter?'&filter='+encodeURIComponent(filter):'');
+  try{await streamFetch(url)}
+  catch(e){if(e.name!=='AbortError')append('[错误] '+e.message+'\n')}
+  finally{document.getElementById('log-start').disabled=false;document.getElementById('log-stop').disabled=true;currentMode=''}
+}
+function stopLogcat(writeLine=true){
+  if(currentMode==='logcat'&&currentController){currentController.abort();if(writeLine)append('\n--- 已停止 logcat ---\n')}
+  document.getElementById('log-start').disabled=false;
+  document.getElementById('log-stop').disabled=true;
+}
+function stopCurrentOperation(){if(currentXhr){currentXhr.abort();return}if(currentController)currentController.abort()}
+function fmtB(bytes){const u=['B','KB','MB','GB'];let n=Number(bytes)||0,i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return(i===0?n.toFixed(0):n.toFixed(1))+' '+u[i]}
+function escH(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function esc(s){return escH(s).replace(/`/g,'&#96;')}
+adbInput.addEventListener('change',saveAdbPath);
+adbInput.addEventListener('input',scheduleAdbStatus);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+init();
+</script>
+</body>
+</html>

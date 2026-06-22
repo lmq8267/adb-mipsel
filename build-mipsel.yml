@@ -1,0 +1,112 @@
+name: 在线静态编译 adb (mipsel-muslsf, via android-tools-static meson)
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build cmake git patch
+
+      - name: Get mipsel musl softfloat toolchain
+        run: |
+          wget https://github.com/lmq8267/Toolchain/releases/download/musl-cross/mipsel-linux-muslsf-cross.tgz
+          tar xf mipsel-linux-muslsf-cross.tgz
+          echo "$PWD/mipsel-linux-muslsf-cross/bin" >> $GITHUB_PATH
+
+      - name: Get latest release source archive
+        run: |
+          wget https://github.com/meator/android-tools-static/releases/download/35.0.2-rc.1/android-tools-static-35.0.2-rc.1-src.tar.gz
+          tar xf android-tools-static-35.0.2-rc.1-src.tar.gz
+          mv android-tools-static-35.0.2-rc.1-src android-tools-static
+          ls
+
+      - name: Patch errno.cpp to skip strict assertions on MIPS
+        run: |
+          FILE=android-tools-static/vendor/adb/sysdeps/errno.cpp
+          sed -i 's|#define ERRNO_VALUE(error_name, wire_value) static_assert((error_name) == (wire_value), "")|#if defined(__mips__)\n#define ERRNO_VALUE(error_name, wire_value)\n#else\n#define ERRNO_VALUE(error_name, wire_value) static_assert((error_name) == (wire_value), "")\n#endif|' "$FILE"
+          echo "----- 确认修改结果 -----"
+          sed -n '48,58p' "$FILE"
+
+      - name: Patch adb executable path fallback
+        run: |
+          FILE=android-tools-static/vendor/adb/adb.cpp
+          perl -0pi -e 's|#include "adb_host.pb.h"\n#include "client/usb.h"\n|#include "adb_host.pb.h"\n#include "client/adb_client.h"\n#include "client/usb.h"\n|' "$FILE"
+          perl -0pi -e 's|android::base::GetExecutablePath\(\)\.c_str\(\)|adb_executable_path().c_str()|g' "$FILE"
+          perl -0pi -e 's|std::string path = android::base::GetExecutablePath\(\);|std::string path = adb_executable_path();|' "$FILE"
+          perl -0pi -e 's|status.set_executable_absolute_path\(android::base::GetExecutablePath\(\)\);|status.set_executable_absolute_path(adb_executable_path());|' "$FILE"
+          perl -0pi -e 's|std::string adb_version\(\) \{\n|static std::string adb_executable_path() {\n    std::string path = android::base::GetExecutablePath();\n    if (path.empty() \&\& __adb_argv \&\& __adb_argv[0] \&\& __adb_argv[0][0]) {\n        path = __adb_argv[0];\n    }\n    return path;\n}\n\nstd::string adb_version() {\n|' "$FILE"
+          perl -0pi -e 's|        int result = execv\(path\.c_str\(\), const_cast<char\* const\*>\(child_argv\.data\(\)\)\);|        int result;\n        if (strchr(path.c_str(), '\''/'\'')) {\n            result = execv(path.c_str(), const_cast<char* const*>(child_argv.data()));\n        } else {\n            result = execvp(path.c_str(), const_cast<char* const*>(child_argv.data()));\n        }|' "$FILE"
+          ! grep -F 'int result = execv(path.c_str(), const_cast<char* const*>(child_argv.data()));' "$FILE"
+          grep -F 'static std::string adb_executable_path()' "$FILE"
+          grep -F 'result = execvp(path.c_str(), const_cast<char* const*>(child_argv.data()));' "$FILE"
+          echo "----- 确认修改结果 -----"
+          sed -n '73,82p' "$FILE"
+          sed -n '96,122p' "$FILE"
+          sed -n '1040,1090p' "$FILE"
+
+      - name: Patch SEEK_DATA/SEEK_HOLE for musl (libsparse)
+        run: |
+          FILE=android-tools-static/vendor/core/libsparse/sparse_read.cpp
+          sed -i '1i #ifndef SEEK_DATA\n#define SEEK_DATA 3\n#endif\n#ifndef SEEK_HOLE\n#define SEEK_HOLE 4\n#endif' "$FILE"
+          echo "----- 确认修改结果 -----"
+          head -10 "$FILE"
+
+      - name: Write meson cross-file for mipsel-muslsf
+        run: |
+          cat > mipsel-muslsf.ini << 'EOF'
+          [binaries]
+          c = 'mipsel-linux-muslsf-gcc'
+          cpp = 'mipsel-linux-muslsf-g++'
+          ar = 'mipsel-linux-muslsf-ar'
+          strip = 'mipsel-linux-muslsf-strip'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'mips'
+          cpu = 'mipsel'
+          endian = 'little'
+          [properties]
+          needs_exe_wrapper = true
+          [built-in options]
+          c_args = ['-static', '-ffunction-sections', '-fdata-sections', '-mno-abicalls', '-fno-pic']
+          cpp_args = ['-static', '-ffunction-sections', '-fdata-sections', '-mno-abicalls', '-fno-pic']
+          c_link_args = ['-static', '-no-pie', '-Wl,--gc-sections']
+          cpp_link_args = ['-static', '-no-pie', '-Wl,--gc-sections']
+          EOF
+
+      - name: Configure (size-optimized)
+        run: |
+          cd android-tools-static
+          meson setup build \
+            --cross-file=../mipsel-muslsf.ini \
+            --default-library=static \
+            --wrap-mode=forcefallback \
+            --buildtype=release \
+            --strip \
+            -Dc_args="-ffunction-sections -fdata-sections -static" \
+            -Dcpp_args="-ffunction-sections -fdata-sections -static" \
+            -Dc_link_args="-static -no-pie -Wl,--gc-sections" \
+            -Dcpp_link_args="-static -no-pie -Wl,--gc-sections"
+
+      - name: Install upx
+        uses: crazy-max/ghaction-upx@master
+        with:
+         version: v4.2.4
+         install-only: true
+
+      - name: Build
+        run: |
+          cd android-tools-static
+          meson compile -C build -v
+          mipsel-linux-muslsf-strip build/vendor/* || true
+          upx --best --lzma build/vendor/* || true
+          file build/vendor/adb
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: adb-mipsel-linux-muslsf
+          path: android-tools-static/build/vendor/*
